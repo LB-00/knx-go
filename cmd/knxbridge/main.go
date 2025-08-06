@@ -11,10 +11,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/vapourismo/knx-go/knx"
-	"github.com/vapourismo/knx-go/knx/cemi"
-	"github.com/vapourismo/knx-go/knx/knxnet"
-	"github.com/vapourismo/knx-go/knx/util"
+	"github.com/LB-00/knx-go/knx"
+	"github.com/LB-00/knx-go/knx/cemi"
+	"github.com/LB-00/knx-go/knx/knxnet"
+	"github.com/LB-00/knx-go/knx/util"
 )
 
 type relay interface {

@@ -10,7 +10,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/vapourismo/knx-go/knx/util"
+	"github.com/LB-00/knx-go/knx/util"
 )
 
 func TestAddress_String(t *testing.T) {

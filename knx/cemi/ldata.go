@@ -3,7 +3,7 @@
 
 package cemi
 
-import "github.com/vapourismo/knx-go/knx/util"
+import "github.com/LB-00/knx-go/knx/util"
 
 // A LData is a link-layer data frame. L_Data.req, L_Data.con and L_Data.ind share this structure.
 type LData struct {

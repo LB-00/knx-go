@@ -4,8 +4,8 @@
 package knx
 
 import (
-	"github.com/vapourismo/knx-go/knx/cemi"
-	"github.com/vapourismo/knx-go/knx/util"
+	"github.com/LB-00/knx-go/knx/cemi"
+	"github.com/LB-00/knx-go/knx/util"
 )
 
 // GroupCommand determines the meaning of a group event.

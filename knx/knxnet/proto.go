@@ -9,7 +9,7 @@ import (
 
 	"fmt"
 
-	"github.com/vapourismo/knx-go/knx/util"
+	"github.com/LB-00/knx-go/knx/util"
 )
 
 // ServiceID identifies the service that is contained in a packet.

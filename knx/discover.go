@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/vapourismo/knx-go/knx/knxnet"
+	"github.com/LB-00/knx-go/knx/knxnet"
 )
 
 // Discover all KNXnet/IP servers.
