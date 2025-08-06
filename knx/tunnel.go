@@ -6,6 +6,7 @@ package knx
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -72,6 +73,9 @@ type Tunnel struct {
 	layer   knxnet.TunnelLayer
 	channel uint8
 	control knxnet.HostInfo
+
+	// Assigned individual address
+	addr cemi.IndividualAddr
 
 	// For outgoing requests
 	seqMu     sync.Mutex
@@ -160,6 +164,7 @@ func (conn *Tunnel) requestConn() (err error) {
 				// Conection has been established.
 				case knxnet.NoError:
 					conn.channel = res.Channel
+					conn.addr = res.Data.Addr
 
 					conn.seqMu.Lock()
 					conn.seqNumber = 0
@@ -618,6 +623,41 @@ func NewTunnel(
 	return client, nil
 }
 
+// NewTunnelFromConn establishes a tunnel connection using an existing net.Conn.
+func NewTunnelFromConn(
+	conn net.Conn,
+	layer knxnet.TunnelLayer,
+	config TunnelConfig,
+) (tunnel *Tunnel, err error) {
+	// Create a socket using the provided connection.
+	sock, err := knxnet.NewTunnelSocketFromConn(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tunnel socket: %w", err)
+	}
+
+	// Initialize the Client structure.
+	client := &Tunnel{
+		sock:    sock,
+		config:  checkTunnelConfig(config),
+		layer:   layer,
+		ack:     make(chan *knxnet.TunnelRes),
+		inbound: make(chan cemi.Message),
+		done:    make(chan struct{}),
+	}
+
+	// Connect to the gateway.
+	err = client.requestConn()
+	if err != nil {
+		sock.Close()
+		return nil, err
+	}
+
+	client.wait.Add(1)
+	go client.serve()
+
+	return client, nil
+}
+
 // Close will terminate the connection and wait for the server routine to exit. Although a
 // disconnect request is sent, it does not wait for a disconnect response.
 func (conn *Tunnel) Close() {
@@ -640,6 +680,11 @@ func (conn *Tunnel) Inbound() <-chan cemi.Message {
 // Send relays a tunnel request to the gateway with the given contents.
 func (conn *Tunnel) Send(data cemi.Message) error {
 	return conn.requestTunnel(data)
+}
+
+// SourceAddr returns the individual address assigned to the tunnel connection.
+func (conn *Tunnel) SourceAddr() cemi.IndividualAddr {
+	return conn.addr
 }
 
 // GroupTunnel is a Tunnel that provides only a group communication interface.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/LB-00/knx-go/knx/util"
@@ -74,6 +75,41 @@ func DialTunnelTCP(address string) (*TunnelSocket, error) {
 
 	inbound := make(chan Service)
 	go serveTCPSocket(conn, addr, inbound)
+
+	return &TunnelSocket{conn, inbound}, nil
+}
+
+// NewTunnelSocketFromConn creates a new Socket from an existing net.Conn.
+func NewTunnelSocketFromConn(conn net.Conn) (*TunnelSocket, error) {
+	if conn == nil {
+		return nil, fmt.Errorf("connection cannot be nil")
+	}
+
+	addr := conn.RemoteAddr().String()
+	ipStr := strings.Split(addr, ":")[0]
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return nil, fmt.Errorf("unable to parse IP: %s", ipStr)
+	}
+	if ip.IsMulticast() {
+		return nil, fmt.Errorf("cannot tunnel to multicast address")
+	}
+
+	conn.SetDeadline(time.Time{})
+
+	inbound := make(chan Service)
+
+	switch c := conn.(type) {
+	case *net.UDPConn:
+		udpAddr := c.RemoteAddr().(*net.UDPAddr)
+		go serveUDPSocket(c, udpAddr, inbound)
+	case *net.TCPConn:
+		tcpAddr := c.RemoteAddr().(*net.TCPAddr)
+		go serveTCPSocket(c, tcpAddr, inbound)
+	default:
+		// Fallback for other net.Conn types.
+		go serveSocket(&conn, inbound)
+	}
 
 	return &TunnelSocket{conn, inbound}, nil
 }
@@ -254,6 +290,40 @@ func serveTCPSocket(conn *net.TCPConn, addr *net.TCPAddr, inbound chan<- Service
 		len, err := io.ReadFull(connBuffer, buffer)
 		if err != nil {
 			util.Log(conn, "Error during ReadFull: %v", err)
+			return
+		}
+
+		// Discard empty frames
+		if len == 0 {
+			util.Log(conn, "Empty frame discarded")
+			continue
+		}
+
+		var payload Service
+		_, err = Unpack(buffer[:len], &payload)
+		if err != nil {
+			util.Log(conn, "Error during Unpack: %v", err)
+			continue
+		}
+
+		inbound <- payload
+	}
+}
+
+// serveSocket is the fallback receiver worker for a socket.
+func serveSocket(conn *net.Conn, inbound chan<- Service) {
+	util.Log(conn, "Started worker")
+	defer util.Log(conn, "Worker exited")
+
+	// A closed inbound channel indicates to its readers that the worker has terminated.
+	defer close(inbound)
+
+	buffer := [1024]byte{}
+
+	for {
+		len, err := (*conn).Read(buffer[:])
+		if err != nil {
+			util.Log(conn, "Error during Read: %v", err)
 			return
 		}
 

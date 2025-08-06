@@ -32,6 +32,8 @@ const (
 	ConnStateResService ServiceID = 0x0208
 	DiscReqService      ServiceID = 0x0209
 	DiscResService      ServiceID = 0x020a
+	SearchReqExtService ServiceID = 0x020b
+	SearchResExtService ServiceID = 0x020c
 	TunnelReqService    ServiceID = 0x0420
 	TunnelResService    ServiceID = 0x0421
 	RoutingIndService   ServiceID = 0x0530
@@ -190,6 +192,12 @@ func Unpack(data []byte, srv *Service) (uint, error) {
 
 	case DiscResService:
 		body = &DiscRes{}
+
+	case SearchReqExtService:
+		body = &SearchReqExt{}
+
+	case SearchResExtService:
+		body = &SearchResExt{}
 
 	case TunnelReqService:
 		body = &TunnelReq{}

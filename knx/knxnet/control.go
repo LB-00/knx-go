@@ -6,6 +6,7 @@ package knxnet
 import (
 	"errors"
 
+	"github.com/LB-00/knx-go/knx/cemi"
 	"github.com/LB-00/knx-go/knx/util"
 )
 
@@ -35,7 +36,10 @@ func (ConnReq) Service() ServiceID {
 	return ConnReqService
 }
 
-var hostInfoSize = HostInfo{}.Size()
+var (
+	hostInfoSize = HostInfo{}.Size()
+	connResSize  = ConnResData{}.Size()
+)
 
 // Size returns the packed size.
 func (ConnReq) Size() uint {
@@ -75,11 +79,59 @@ func (req *ConnReq) Unpack(data []byte) (n uint, err error) {
 	return
 }
 
+// ConnType identifies the type of connection in a connection response.
+type ConnType uint8
+
+// Connection types for the ConnType field in a connection response.
+const (
+	ConnTypeTunneling ConnType = 0x04
+	// ...
+)
+
+// ConnResData represents the Connection Response Data Block of a connection response.
+type ConnResData struct {
+	ConnType uint8
+	Addr     cemi.IndividualAddr
+}
+
+// Size returns the packed size of the ConnResData.
+func (ConnResData) Size() uint {
+	return 4
+}
+
+// Pack assembles the ConnResData structure in the given buffer.
+func (crd *ConnResData) Pack(buffer []byte) {
+	util.PackSome(
+		buffer,
+		uint8(crd.Size()),
+		uint8(crd.ConnType),
+		uint16(crd.Addr),
+	)
+}
+
+// Unpack parses the given data in order to initialize the structure.
+func (crd *ConnResData) Unpack(data []byte) (n uint, err error) {
+	var length uint8
+
+	if n, err = util.UnpackSome(
+		data, &length, (*uint8)(&crd.ConnType), (*uint16)(&crd.Addr),
+	); err != nil {
+		return
+	}
+
+	if length != uint8(crd.Size()) {
+		return n, errors.New("invalid length for Connection Response Data structure")
+	}
+
+	return n, nil
+}
+
 // ConnRes is a response to a connection request.
 type ConnRes struct {
 	Channel uint8
 	Status  ErrCode
 	Control HostInfo
+	Data    ConnResData
 }
 
 // Service returns the service identifier for connection responses.
@@ -112,6 +164,12 @@ func (res *ConnRes) Unpack(data []byte) (n uint, err error) {
 	if res.Status == 0 {
 		var m uint
 		m, err = res.Control.Unpack(data[2:])
+		n += m
+	}
+
+	if res.Status == 0 && n+connResSize <= uint(len(data)) {
+		var m uint
+		m, err = res.Data.Unpack(data[n:])
 		n += m
 	}
 
