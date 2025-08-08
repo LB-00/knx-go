@@ -180,7 +180,10 @@ func (conn *P2PConnection) requestConn() error {
 		return err
 	}
 
-	timeout := time.After(3 * time.Second)
+	// Setup timeout.
+	timeout := time.After(conn.tunnel.config.ResponseTimeout)
+
+	// Cycle until a confirmation is received.
 	for {
 		select {
 		// Timeout reached.
@@ -306,7 +309,7 @@ func (conn *P2PConnection) nextSeqNum() uint8 {
 
 // awaitAck waits for a T_Ack from the device after sending a request.
 func (conn *P2PConnection) awaitAck() error {
-	timeout := time.After(3 * time.Second)
+	timeout := time.After(conn.tunnel.config.ResponseTimeout)
 
 	for {
 		select {
